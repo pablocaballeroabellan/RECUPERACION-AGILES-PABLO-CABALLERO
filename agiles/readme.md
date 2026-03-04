@@ -8,6 +8,15 @@ oportuno. Usa el formato [Markdown](https://www.markdownguide.org/cheat-sheet/)
 
 <!-- Indica aquí las modificaciones que hayas realizado, ejemplo: -->
 
+## Cambio 1: Migración a Maven
+Se ha convertido el proyecto a una estructura Maven (src/main/java) y se ha añadido un `pom.xml`.
+Esto permite gestionar el build de forma estándar y preparar el proyecto para integrar herramientas automatizadas.
+
+## Cambio 2: DevOps (Checkstyle + GitHub Actions)
+Se ha añadido:
+- `checkstyle.xml` para definir reglas de estilo.
+- Workflow `.github/workflows/ci.yml` para ejecutar `mvn verify` (incluye Checkstyle) automáticamente en pushes/PRs a `develop`.
+
 ### Ordenación de los botones
 
 <!-- Puedes borrar este ejemplo, todo el apartado -->
