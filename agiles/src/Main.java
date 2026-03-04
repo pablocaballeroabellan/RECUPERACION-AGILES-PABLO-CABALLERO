@@ -10,8 +10,9 @@ import javax.swing.JPanel;
  * Simple Swing calculator.
  *
  * Issue #1: refactor input handling (digits + display formatting).
- * Issue #2: add SUB (-) and MUL (*) operations and replace the string-based
- * operation flag with an enum for clearer gitflow-sized changes.
+ * Issue #2: add SUB (-) and MUL (*) operations and use an enum for operations.
+ * Issue #3: add robust error handling (no crashes on invalid factorial/exponent,
+ * overflow checks, and safe display of errors).
  */
 public class Main extends JFrame implements ActionListener {
 
@@ -38,6 +39,8 @@ public class Main extends JFrame implements ActionListener {
     }
 
     private Op pending = Op.NONE;
+
+    private boolean errorState = false;
 
     // Buttons
     public JButton b0, b1, b2, b3, b4, b5, b6, b7, b8, b9;
@@ -78,7 +81,7 @@ public class Main extends JFrame implements ActionListener {
 
         b0 = makeButton("0", 50, 310);
 
-        // New operations (Issue #2)
+        // Operations
         addButton = makeButton("+", 120, 310);
         equalsButton = makeButton("=", 190, 310);
         c = makeButton("C", 260, 310);
@@ -102,7 +105,15 @@ public class Main extends JFrame implements ActionListener {
         return b;
     }
 
+    private void exitErrorStateIfNeeded() {
+        if (errorState) {
+            errorState = false;
+            // Do not auto-update display here; next action will.
+        }
+    }
+
     private void pressDigit(int digit) {
+        exitErrorStateIfNeeded();
         if (dotDigits == 0) {
             current = current * 10 + digit;
         } else if (dotDigits < 10) {
@@ -113,13 +124,13 @@ public class Main extends JFrame implements ActionListener {
     }
 
     private void pressDot() {
-        if (dotDigits == 0) {
-            dotDigits = 1;
-        }
+        exitErrorStateIfNeeded();
+        if (dotDigits == 0) dotDigits = 1;
         updateDisplay();
     }
 
     private void clearAll() {
+        errorState = false;
         current = 0;
         memory = 0;
         dotDigits = 0;
@@ -127,11 +138,22 @@ public class Main extends JFrame implements ActionListener {
         updateDisplay();
     }
 
+    private void setErrorState() {
+        errorState = true;
+        text.setText("Error");
+        // Reset internal state but keep "Error" visible
+        current = 0;
+        memory = 0;
+        dotDigits = 0;
+        pending = Op.NONE;
+    }
+
     private int decimalsTyped() {
         return (dotDigits == 0) ? 0 : Math.max(0, dotDigits - 1);
     }
 
     private void updateDisplay() {
+        if (errorState) return;
         int dec = decimalsTyped();
         text.setText(String.format("%." + dec + "f", current));
     }
@@ -162,6 +184,7 @@ public class Main extends JFrame implements ActionListener {
     }
 
     private void pressOperation(Op nextOp) {
+        exitErrorStateIfNeeded();
         if (pending == Op.NONE) {
             memory = current;
         } else {
@@ -174,6 +197,7 @@ public class Main extends JFrame implements ActionListener {
     }
 
     private void pressEquals() {
+        exitErrorStateIfNeeded();
         if (pending == Op.NONE) return;
         double result = apply(pending, memory, current);
         pending = Op.NONE;
@@ -185,52 +209,60 @@ public class Main extends JFrame implements ActionListener {
     public void actionPerformed(ActionEvent ev) {
         Object pressedButton = ev.getSource();
 
-        // Digits
-        if (pressedButton == b0) { pressDigit(0); return; }
-        if (pressedButton == b1) { pressDigit(1); return; }
-        if (pressedButton == b2) { pressDigit(2); return; }
-        if (pressedButton == b3) { pressDigit(3); return; }
-        if (pressedButton == b4) { pressDigit(4); return; }
-        if (pressedButton == b5) { pressDigit(5); return; }
-        if (pressedButton == b6) { pressDigit(6); return; }
-        if (pressedButton == b7) { pressDigit(7); return; }
-        if (pressedButton == b8) { pressDigit(8); return; }
-        if (pressedButton == b9) { pressDigit(9); return; }
+        try {
+            // Digits
+            if (pressedButton == b0) { pressDigit(0); return; }
+            if (pressedButton == b1) { pressDigit(1); return; }
+            if (pressedButton == b2) { pressDigit(2); return; }
+            if (pressedButton == b3) { pressDigit(3); return; }
+            if (pressedButton == b4) { pressDigit(4); return; }
+            if (pressedButton == b5) { pressDigit(5); return; }
+            if (pressedButton == b6) { pressDigit(6); return; }
+            if (pressedButton == b7) { pressDigit(7); return; }
+            if (pressedButton == b8) { pressDigit(8); return; }
+            if (pressedButton == b9) { pressDigit(9); return; }
 
-        // Dot / clear
-        if (pressedButton == dotButton) { pressDot(); return; }
-        if (pressedButton == c) { clearAll(); return; }
+            // Dot / clear
+            if (pressedButton == dotButton) { pressDot(); return; }
+            if (pressedButton == c) { clearAll(); return; }
 
-        // Operations
-        if (pressedButton == addButton) { pressOperation(Op.ADD); return; }
-        if (pressedButton == subButton) { pressOperation(Op.SUB); return; }
-        if (pressedButton == mulButton) { pressOperation(Op.MUL); return; }
-        if (pressedButton == bExp) { pressOperation(Op.EXP); return; }
+            // Operations
+            if (pressedButton == addButton) { pressOperation(Op.ADD); return; }
+            if (pressedButton == subButton) { pressOperation(Op.SUB); return; }
+            if (pressedButton == mulButton) { pressOperation(Op.MUL); return; }
+            if (pressedButton == bExp) { pressOperation(Op.EXP); return; }
 
-        if (pressedButton == equalsButton) { pressEquals(); return; }
+            if (pressedButton == equalsButton) { pressEquals(); return; }
 
-        // Extra functions (kept from base)
-        if (pressedButton == circButton) {
-            setCurrentFromOperationResult(3.14159 * 2 * current);
-            pending = Op.NONE;
-            return;
-        }
+            // Extra functions
+            if (pressedButton == circButton) {
+                exitErrorStateIfNeeded();
+                setCurrentFromOperationResult(3.14159 * 2 * current);
+                pending = Op.NONE;
+                return;
+            }
 
-        if (pressedButton == bFact) {
-            current = calculatef(current);
-            pending = Op.NONE;
-            dotDigits = 0;
-            updateDisplay();
-            return;
+            if (pressedButton == bFact) {
+                exitErrorStateIfNeeded();
+                setCurrentFromOperationResult(calculatef(current));
+                pending = Op.NONE;
+                return;
+            }
+        } catch (RuntimeException ex) {
+            // Invalid operation, overflow, etc. -> show error but do not crash the app
+            setErrorState();
         }
     }
 
-    /** @return n! (only natural numbers) */
-    public int calculatef(double n) {
-        if (n % 1 != 0) throw new RuntimeException("n is not natural");
-        if (n < 0) throw new RuntimeException("n is negative");
-        int r = 1;
-        for (int i = 2; i <= n; i++) r *= i;
+    /** @return n! (only natural numbers, and must fit in long) */
+    public long calculatef(double n) {
+        if (n % 1 != 0) throw new IllegalArgumentException("n is not natural");
+        if (n < 0) throw new IllegalArgumentException("n is negative");
+
+        long r = 1L;
+        for (long i = 2; i <= (long) n; i++) {
+            r = Math.multiplyExact(r, i); // throws ArithmeticException on overflow
+        }
         return r;
     }
 
@@ -239,13 +271,18 @@ public class Main extends JFrame implements ActionListener {
      * @return b^e
      */
     public double calculatee(double b, double e) {
-        if (e % 1 != 0 || e < 0) throw new RuntimeException("e is not natural");
-        if (b == 0 && e == 0) throw new RuntimeException("0^0 is undefined");
+        if (e % 1 != 0 || e < 0) throw new IllegalArgumentException("e is not natural");
+        if (b == 0 && e == 0) throw new IllegalArgumentException("0^0 is undefined");
 
         if (e == 0) return 1;
 
         double r = b;
-        for (int i = 1; i < e; i++) r *= b;
+        for (int i = 1; i < (int) e; i++) {
+            r *= b;
+            if (Double.isInfinite(r) || Double.isNaN(r)) {
+                throw new ArithmeticException("overflow");
+            }
+        }
         return r;
     }
 }
