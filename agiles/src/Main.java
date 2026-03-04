@@ -6,24 +6,47 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+/**
+ * Simple Swing calculator (base project).
+ *
+ * Issue #1: refactor input handling (digits + display formatting) to avoid
+ * duplicated code and fix decimal-length calculation on operations.
+ */
 public class Main extends JFrame implements ActionListener {
+
+    private static final long serialVersionUID = 1L;
+
     public JPanel p;
 
-    public double current = 0, memory;
+    // Current value being typed
+    public double current = 0;
+
+    // Stored value for pending operation
+    public double memory = 0;
+
+    /**
+     * Decimal mode:
+     * - 0 => no decimal point typed
+     * - 1 => decimal point typed, no decimal digits yet
+     * - 2..10 => number of decimal digits typed is (dotDigits - 1)
+     */
     public int dotDigits = 0;
-    public String a = "n"; // s, e, n
+
+    /**
+     * Pending operation:
+     * - "n" none
+     * - "s" sum
+     * - "e" exponentiation (bExp)
+     */
+    public String a = "n";
 
     public JButton b0, b1, b2, b3, b4, b5, b6, b7, b8, b9;
     public JButton equalsButton, sumButton, c, dotButton, circButton, bFact, bExp;
     public JLabel text;
 
     public static void main(String[] args) {
-        try {
-            Main frame = new Main();
-            frame.setVisible(true);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Main frame = new Main();
+        frame.setVisible(true);
     }
 
     public Main() {
@@ -40,279 +63,186 @@ public class Main extends JFrame implements ActionListener {
         text.setBounds(50, 20, 300, 50);
         p.add(text);
 
-        b7 = new JButton("7");
-        b7.setBounds(50, 100, 60, 60);
-        p.add(b7);
-        b7.addActionListener(this);
+        // Digits
+        b7 = makeButton("7", 50, 100);
+        b8 = makeButton("8", 120, 100);
+        b9 = makeButton("9", 190, 100);
 
-        b8 = new JButton("8");
-        b8.setBounds(120, 100, 60, 60);
-        p.add(b8);
-        b8.addActionListener(this);
+        b4 = makeButton("4", 50, 170);
+        b5 = makeButton("5", 120, 170);
+        b6 = makeButton("6", 190, 170);
 
-        b9 = new JButton("9");
-        b9.setBounds(190, 100, 60, 60);
-        p.add(b9);
-        b9.addActionListener(this);
+        b1 = makeButton("1", 50, 240);
+        b2 = makeButton("2", 120, 240);
+        b3 = makeButton("3", 190, 240);
 
-        b4 = new JButton("4");
-        b4.setBounds(50, 170, 60, 60);
-        p.add(b4);
-        b4.addActionListener(this);
+        b0 = makeButton("0", 50, 310);
 
-        b5 = new JButton("5");
-        b5.setBounds(120, 170, 60, 60);
-        p.add(b5);
-        b5.addActionListener(this);
+        // Operations / actions
+        sumButton = makeButton("+", 120, 310);
+        equalsButton = makeButton("=", 190, 310);
+        c = makeButton("C", 260, 310);
 
-        b6 = new JButton("6");
-        b6.setBounds(190, 170, 60, 60);
-        p.add(b6);
-        b6.addActionListener(this);
+        dotButton = makeButton(".", 50, 380);
 
-        b1 = new JButton("1");
-        b1.setBounds(50, 240, 60, 60);
-        p.add(b1);
-        b1.addActionListener(this);
+        circButton = makeButton("Circum", 120, 380);
+        bFact = makeButton("!", 190, 380);
+        bExp = makeButton("Exp", 260, 380);
 
-        b2 = new JButton("2");
-        b2.setBounds(120, 240, 60, 60);
-        p.add(b2);
-        b2.addActionListener(this);
+        updateDisplay();
+    }
 
-        b3 = new JButton("3");
-        b3.setBounds(190, 240, 60, 60);
-        p.add(b3);
-        b3.addActionListener(this);
+    private JButton makeButton(String label, int x, int y) {
+        JButton b = new JButton(label);
+        b.setBounds(x, y, 60, 60);
+        p.add(b);
+        b.addActionListener(this);
+        return b;
+    }
 
-        b0 = new JButton("0");
-        b0.setBounds(50, 310, 60, 60);
-        p.add(b0);
-        b0.addActionListener(this);
+    private void pressDigit(int digit) {
+        if (dotDigits == 0) {
+            current = current * 10 + digit;
+        } else if (dotDigits < 10) {
+            current = current + digit * Math.pow(10, -dotDigits);
+            dotDigits++;
+        }
+        updateDisplay();
+    }
 
-        sumButton = new JButton("+");
-        sumButton.setBounds(120, 310, 60, 60);
-        p.add(sumButton);
-        sumButton.addActionListener(this);
+    private void pressDot() {
+        // Start decimal typing
+        if (dotDigits == 0) {
+            dotDigits = 1;
+        }
+        updateDisplay();
+    }
 
-        equalsButton = new JButton("=");
-        equalsButton.setBounds(190, 310, 60, 60);
-        p.add(equalsButton);
-        equalsButton.addActionListener(this);
+    private void clearAll() {
+        current = 0;
+        memory = 0;
+        dotDigits = 0;
+        a = "n";
+        updateDisplay();
+    }
 
-        c = new JButton("C");
-        c.setBounds(260, 310, 60, 60);
-        p.add(c);
-        c.addActionListener(this);
+    private int decimalsTyped() {
+        return (dotDigits == 0) ? 0 : Math.max(0, dotDigits - 1);
+    }
 
-        dotButton = new JButton(".");
-        dotButton.setBounds(50, 380, 60, 60);
-        p.add(dotButton);
-        dotButton.addActionListener(this);
+    private void updateDisplay() {
+        int dec = decimalsTyped();
+        text.setText(String.format("%." + dec + "f", current));
+    }
 
-        circButton = new JButton("Circum");
-        circButton.setBounds(120, 380, 60, 60);
-        p.add(circButton);
-        circButton.addActionListener(this);
-
-        bFact = new JButton("!");
-        bFact.setBounds(190, 380, 60, 60);
-        p.add(bFact);
-        bFact.addActionListener(this);
-
-        bExp = new JButton("Exp");
-        bExp.setBounds(260, 380, 60, 60);
-        p.add(bExp);
-        bExp.addActionListener(this);
+    private void setCurrentFromOperationResult(double value) {
+        current = value;
+        // Recalculate dotDigits safely (avoid split errors)
+        String s = String.valueOf(value);
+        int dot = s.indexOf('.');
+        if (dot < 0 || s.contains("E") || s.contains("e")) {
+            dotDigits = 0;
+        } else {
+            int decimals = s.length() - dot - 1;
+            // Keep max 9 decimals in UI (dotDigits max 10 -> 9 decimals)
+            decimals = Math.min(decimals, 9);
+            dotDigits = (decimals == 0) ? 0 : (decimals + 1);
+        }
+        updateDisplay();
     }
 
     @Override
     public void actionPerformed(ActionEvent ev) {
         Object pressedButton = ev.getSource();
 
-        {
-        if (pressedButton == b0) {
-            if (dotDigits == 0) {
-                current = current * 10;
-            } else if (dotDigits < 10) {
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b1) {
-            if (dotDigits == 0) {
-                current = current * 10 + 1;
-            } else if (dotDigits < 10) {
-                current = current + 1 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b2) {
-            if (dotDigits == 0) {
-                current = current * 10 + 2;
-            } else if (dotDigits < 10) {
-                current = current + 2 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b3) {
-            if (dotDigits == 0) {
-                current = current * 10 + 3;
-            } else if (dotDigits < 10) {
-                current = current + 3 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b4) {
-            if (dotDigits == 0) {
-                current = current * 10 + 4;
-            } else if (dotDigits < 10) {
-                current = current + 4 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b5) {
-            if (dotDigits == 0) {
-                current = current * 10 + 5;
-            } else if (dotDigits < 10) {
-                current = current + 5 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b6) {
-            if (dotDigits == 0) {
-                current = current * 10 + 6;
-            } else if (dotDigits < 10) {
-                current = current + 6 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b7) {
-            if (dotDigits == 0) {
-                current = current * 10 + 7;
-            } else if (dotDigits < 10) {
-                current = current + 7 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b8) {
-            if (dotDigits == 0) {
-                current = current * 10 + 8;
-            } else if (dotDigits < 10) {
-                current = current + 8 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-        if (pressedButton == b9) {
-            if (dotDigits == 0) {
-                current = current * 10 + 9;
-            } else if (dotDigits < 10) {
-                current = current + 9 * Math.pow(10, -dotDigits);
-                dotDigits++;
-            }
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
-        };
-    }
+        // Digits
+        if (pressedButton == b0) { pressDigit(0); return; }
+        if (pressedButton == b1) { pressDigit(1); return; }
+        if (pressedButton == b2) { pressDigit(2); return; }
+        if (pressedButton == b3) { pressDigit(3); return; }
+        if (pressedButton == b4) { pressDigit(4); return; }
+        if (pressedButton == b5) { pressDigit(5); return; }
+        if (pressedButton == b6) { pressDigit(6); return; }
+        if (pressedButton == b7) { pressDigit(7); return; }
+        if (pressedButton == b8) { pressDigit(8); return; }
+        if (pressedButton == b9) { pressDigit(9); return; }
 
-    {
-        if (pressedButton == sumButton) {
-            if (a.equals("s")) {
-                memory = current + memory;
-            }
-            if (a.equals("e")) {
-                memory = calculatee(current, memory);
-            }
-            if (a.equals("n")) {
-                memory = current;
-            }
-            current = 0;
-            dotDigits = 0;
-            text.setText(String.valueOf(current));
-            a = "s";
-        }
-
-        if (pressedButton == bExp) {
-            if (a.equals("s")) {
-                memory = current + memory;
-            }
-            if (a.equals("e")) {
-                memory = calculatee(current, memory);
-            }
-            if (a.equals("n")) {
-                memory = current;
-            }
-            current = 0;
-            dotDigits = 0;
-            text.setText(String.valueOf(current));
-            a = "e";
-        }
-    }
-
-        if (pressedButton == equalsButton) {
-            if (a.equals("s")) {
-                current = current + memory;
-                text.setText(String.valueOf(current));
-                a = "n";
-                dotDigits = String.valueOf(current).split("\\.")[1].length() + 1;
-            }
-            if (a.equals("e")) {
-                current = calculatee(current, memory);
-                text.setText(String.valueOf(current));
-                a = "n";
-                dotDigits = String.valueOf(current).split("\\.")[1].length() + 1;
-            }
+        // Dot / clear
+        if (pressedButton == dotButton) {
+            pressDot();
+            return;
         }
 
         if (pressedButton == c) {
-            current = 0;
-            dotDigits = 0;
-            a = "n";
-            text.setText(String.valueOf(current));
+            clearAll();
+            return;
         }
 
-        if (pressedButton == dotButton) {
-            if (dotDigits < 10) {
-                dotDigits++;
-                text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
+        // Operation buttons: store pending operation in 'a'
+        if (pressedButton == sumButton) {
+            // Apply previous pending operation before setting new one
+            if (a.equals("s")) memory = current + memory;
+            else if (a.equals("e")) memory = calculatee(current, memory);
+            else memory = current;
+
+            current = 0;
+            dotDigits = 0;
+            a = "s";
+            updateDisplay();
+            return;
+        }
+
+        if (pressedButton == bExp) {
+            if (a.equals("s")) memory = current + memory;
+            else if (a.equals("e")) memory = calculatee(current, memory);
+            else memory = current;
+
+            current = 0;
+            dotDigits = 0;
+            a = "e";
+            updateDisplay();
+            return;
+        }
+
+        if (pressedButton == equalsButton) {
+            if (a.equals("s")) {
+                setCurrentFromOperationResult(current + memory);
+                a = "n";
+                return;
+            }
+            if (a.equals("e")) {
+                setCurrentFromOperationResult(calculatee(current, memory));
+                a = "n";
+                return;
             }
         }
 
         if (pressedButton == circButton) {
-            current = 3.14159 * 2 * current;
-            text.setText(String.valueOf(current));
+            setCurrentFromOperationResult(3.14159 * 2 * current);
             a = "n";
-            dotDigits = String.valueOf(current).split("\\.")[1].length() + 1;
+            return;
         }
 
         if (pressedButton == bFact) {
+            // Keep original behavior (no error handling yet; that's Issue #3)
             current = calculatef(current);
             a = "n";
             dotDigits = 0;
-            text.setText(String.format("%." + (dotDigits == 0 ? 0 : dotDigits - 1) + "f", current));
+            updateDisplay();
+            return;
         }
     }
 
-        ;
-
     /**
-     * 
-     * @param n
-     * @return n!
+     * @param n number
+     * @return n! (only natural numbers)
      */
     public int calculatef(double n) {
         if (n % 1 != 0) throw new RuntimeException("n is not natural");
         if (n < 0) throw new RuntimeException("n is negative");
         int r = 1;
         for (int i = 2; i <= n; i++) {
-            r*= i;
+            r *= i;
         }
         return r;
     }
@@ -326,3 +256,4 @@ public class Main extends JFrame implements ActionListener {
         return r;
     }
 }
+
